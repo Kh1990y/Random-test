@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AFAAQ Readiness Simulation</title>
+<style>
+:root{
+  --navy:#0B1E33; --navy-2:#122A45; --sky:#3E8FB0; --amber:#F2A541;
+  --ok:#3FA66A; --bad:#D6553B; --ink:#EAF1F7; --ink-dim:#9FB3C8; --card:#14293F;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:inherit;margin:0;padding:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  min-height:100%;
+  background:radial-gradient(ellipse at top,#16324F 0%,var(--navy) 55%,#081522 100%);
+  color:var(--ink);
+  font-family:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
+  display:flex;justify-content:center;
+}
+#app{width:100%;max-width:640px;padding:18px 16px 40px;}
+.eyebrow{font-size:12px;letter-spacing:.4px;color:var(--sky);font-weight:600}
+h1{font-size:26px;font-weight:700;margin-top:4px;line-height:1.25}
+p.lede{color:var(--ink-dim);font-size:14.5px;line-height:1.55;margin-top:10px}
+.note{margin-top:16px;background:rgba(242,165,65,.08);border-left:3px solid var(--amber);padding:12px 14px;border-radius:6px;font-size:13px;color:var(--ink-dim);line-height:1.5;}
+.track-pill{display:inline-block;margin-top:16px;padding:6px 12px;border:1px solid rgba(255,255,255,.15);border-radius:20px;font-size:12.5px;color:var(--ink-dim);}
+button{font-family:inherit;cursor:pointer}
+.btn{border:none;border-radius:8px;padding:14px 20px;font-size:15px;font-weight:600;background:var(--sky);color:#06121F;width:100%;margin-top:14px;transition:transform .15s ease, opacity .15s ease;}
+.btn:active{transform:scale(.98)}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--ink)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 2px 16px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:18px;}
+.timer{font-variant-numeric:tabular-nums;font-size:19px;font-weight:700;letter-spacing:.5px;color:var(--ink);background:var(--card);padding:7px 14px;border-radius:7px;border:1px solid rgba(255,255,255,.08);}
+.timer.low{color:var(--bad);border-color:var(--bad)}
+.section-label{font-size:12.5px;color:var(--ink-dim)}
+.section-label b{color:var(--ink)}
+.progress-track{height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-bottom:20px}
+.progress-fill{height:100%;background:var(--amber);transition:width .35s ease}
+.card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px 18px;opacity:0;transform:translateY(6px);animation:fadeIn .35s ease forwards;}
+@keyframes fadeIn{to{opacity:1;transform:translateY(0)}}
+.card.fadeOut{animation:fadeOut .22s ease forwards}
+@keyframes fadeOut{to{opacity:0;transform:translateY(-6px)}}
+.diff{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--amber);font-weight:700}
+.qtext{font-size:17px;line-height:1.5;margin-top:8px;font-weight:600}
+.options{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.opt{text-align:left;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px 14px;color:var(--ink);font-size:14.5px;transition:.15s ease;}
+.opt:hover:not(:disabled){border-color:var(--sky)}
+.opt.correct{background:rgba(63,166,106,.18);border-color:var(--ok)}
+.opt.incorrect{background:rgba(214,85,59,.18);border-color:var(--bad)}
+.opt:disabled{cursor:default}
+.row-btns{display:flex;gap:10px;margin-top:16px}
+.hint-btn{background:transparent;border:1px dashed rgba(255,255,255,.25);color:var(--ink-dim);border-radius:8px;padding:10px 14px;font-size:13.5px;flex:1;}
+.hint-box{margin-top:12px;font-size:13.5px;color:var(--ink-dim);background:rgba(62,143,176,.1);border-radius:8px;padding:10px 12px;border-left:3px solid var(--sky);display:none;line-height:1.5;}
+.hint-box.show{display:block}
+.next-btn{flex:1}
+.feedback-tag{display:inline-block;margin-top:14px;font-size:13px;font-weight:700;padding:4px 10px;border-radius:6px;}
+.feedback-tag.ok{background:rgba(63,166,106,.18);color:var(--ok)}
+.feedback-tag.bad{background:rgba(214,85,59,.18);color:var(--bad)}
+.hidden{display:none !important}
+.result-section{background:var(--card);border-radius:10px;padding:14px 16px;margin-top:12px;border:1px solid rgba(255,255,255,.06);}
+.result-section .rowline{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-dim);margin-bottom:6px}
+.bar-track{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;background:var(--sky)}
+.score-hero{text-align:center;padding:18px 0 6px}
+.score-hero .big{font-size:44px;font-weight:800;color:var(--amber)}
+.score-hero .small{color:var(--ink-dim);font-size:13.5px;margin-top:2px}
+.review-toggle{background:none;border:none;color:var(--sky);font-size:13px;font-weight:600;margin-top:8px;padding:0;text-align:left;}
+.review-item{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.1);font-size:13px;line-height:1.5;}
+.review-item .rq{font-weight:600;color:var(--ink)}
+.review-item .ra{color:var(--bad)}
+.review-item .rc{color:var(--ok)}
+.review-list{display:none}
+.review-list.show{display:block}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ---- QUESTION BANK -------------------------------------------------------
+// NOTE: unverified practice bank (see intro screen). Each section currently
+// ships ~10 sample questions; append more objects in the same
+// {diff,q,options,correct,hint} shape to reach 40/section.
+const sections = [
+{
+  name: "Data Checking",
+  questions: [
+    {diff:"Easy", q:"Compare these two codes: 4457  vs  4457. Are they identical?", options:["Identical","Different"], correct:0, hint:"Read both strings character by character, left to right."},
+    {diff:"Easy", q:"Compare: 8821  vs  8281. Are they identical?", options:["Identical","Different"], correct:1, hint:"Look closely at the middle two digits."},
+    {diff:"Easy", q:"Compare: AB-102  vs  AB-102. Are they identical?", options:["Identical","Different"], correct:0, hint:"Check letters and numbers separately."},
+    {diff:"Medium", q:"Compare: TR-5591-QW  vs  TR-5591-QV. Are they identical?", options:["Identical","Different"], correct:1, hint:"Check the very last character carefully."},
+    {diff:"Medium", q:"Compare: 20458793  vs  20458793. Are they identical?", options:["Identical","Different"], correct:0, hint:"Longer strings need a careful digit-by-digit scan."},
+    {diff:"Medium", q:"How many differences exist between 45X29B7 and 45X28B7?", options:["0","1","2","3"], correct:1, hint:"Compare position by position; only one digit differs."},
+    {diff:"Hard", q:"How many differences exist between KH-77201-AZM and KH-77201-AZN?", options:["0","1","2","3"], correct:1, hint:"Everything matches except the very last letter."},
+    {diff:"Hard", q:"Which pair below is exactly IDENTICAL?", options:["33489-TZ / 33489-TZ","33489-TZ / 33488-TZ","33489-ZT / 33489-TZ","33498-TZ / 33489-TZ"], correct:0, hint:"Three of the four pairs have a swapped or changed character."},
+    {diff:"Hard", q:"Which pair below is exactly IDENTICAL?", options:["QW-7710-M / QW-7710-N","RT-2201-K / RT-2201-K","PL-9081-B / PL-9018-B","ZX-3345-A / ZX-3345-4"], correct:1, hint:"Check each pair digit-by-digit; only one pair matches fully."},
+    {diff:"Hard", q:"Out of these three pairs — (1) 552-QZ/552-QZ (2) 771-RT/771-RT (3) 903-KM/903-KN — how many are exactly identical?", options:["0","1","2","3"], correct:2, hint:"Check each of the three pairs separately; only one pair has a mismatch."},
+    {diff:"Medium", q:"Compare: 91234-LMX  vs  91234-LMX. Are they identical?", options:["Identical","Different"], correct:0, hint:"Scan both codes slowly, block by block."},
+    {diff:"Medium", q:"Compare: 77820-KAB  vs  77280-KAB. Are they identical?", options:["Identical","Different"], correct:1, hint:"Look closely at the digit order in the middle."},
+    {diff:"Medium", q:"How many differences exist between 5567-TT-01 and 5567-TT-01?", options:["0","1","2","3"], correct:0, hint:"Compare every character; nothing here has changed."},
+    {diff:"Medium", q:"How many differences exist between QW1023XZ and QW1032XZ?", options:["0","1","2","3"], correct:2, hint:"Two adjacent digits have been swapped."},
+    {diff:"Hard", q:"Which pair below is exactly IDENTICAL?", options:["66210-PQR / 66210-PQR","66210-PQR / 66201-PQR","66210-QPR / 66210-PQR","66120-PQR / 66210-PQR"], correct:0, hint:"Three options have a swapped digit or letter pair."},
+    {diff:"Hard", q:"Which pair below is exactly IDENTICAL?", options:["HX-9034-T / HX-9043-T","HX-9034-T / HX-9034-J","HX-9034-T / HX-9034-T","HX-9304-T / HX-9034-T"], correct:2, hint:"Check the digit order and the final letter in each pair."},
+    {diff:"Hard", q:"How many differences exist between AZR-77410-KM and AZR-77401-KM?", options:["0","1","2","3"], correct:2, hint:"Two digits in the middle number have been swapped."},
+    {diff:"Hard", q:"Out of these three pairs — (1) 220-XY/220-XY (2) 441-ZT/441-ZT (3) 118-QK/118-QL — how many are exactly identical?", options:["0","1","2","3"], correct:2, hint:"Only the last pair has a mismatched final letter."},
+    {diff:"Hard", q:"Which pair below is exactly IDENTICAL?", options:["30567-DDK / 30567-DKD","30567-DDK / 30567-DDK","30576-DDK / 30567-DDK","30567-DDJ / 30567-DDK"], correct:1, hint:"Check the digit order and the final letters carefully in each pair."},
+    {diff:"Hard", q:"Out of these three pairs — (1) 900-AR/900-AR (2) 811-TZ/811-TZ (3) 733-KM/733-KN — how many are exactly identical?", options:["0","1","2","3"], correct:2, hint:"Only one pair has a mismatched final letter."}
+  ]
+},
+{
+  name: "Mental Arithmetic",
+  questions: [
+    {diff:"Easy", q:"8 + 15 = ?", options:["21","22","23","24"], correct:2, hint:"Add the ones first, then the tens."},
+    {diff:"Easy", q:"45 - 19 = ?", options:["24","25","26","27"], correct:2, hint:"Try subtracting 20 then adding 1 back."},
+    {diff:"Easy", q:"7 × 6 = ?", options:["36","40","42","48"], correct:2, hint:"Recall the 6 or 7 times table."},
+    {diff:"Medium", q:"144 ÷ 12 = ?", options:["10","11","12","13"], correct:2, hint:"Think how many times 12 fits into 144."},
+    {diff:"Medium", q:"15% of 80 = ?", options:["10","12","14","16"], correct:1, hint:"Find 10% first, then add half of that (5%)."},
+    {diff:"Medium", q:"250 + 375 - 120 = ?", options:["485","495","505","515"], correct:2, hint:"Add the first two numbers, then subtract the last."},
+    {diff:"Medium", q:"A pen costs 3.5 SAR. How much do 8 pens cost?", options:["24 SAR","26 SAR","28 SAR","30 SAR"], correct:2, hint:"Multiply 3.5 by 8, or use 3.5 × 8 = 3×8 + 0.5×8."},
+    {diff:"Hard", q:"17 × 13 = ?", options:["201","211","221","231"], correct:2, hint:"Try 17 × 13 = 17 × 10 + 17 × 3."},
+    {diff:"Hard", q:"60% of a number is 90. What is the number?", options:["120","135","150","160"], correct:2, hint:"Divide 90 by 0.6."},
+    {diff:"Hard", q:"A number is doubled, then 10 is subtracted, giving 24. What was the original number?", options:["15","16","17","18"], correct:1, hint:"Work backwards: add 10, then divide by 2."},
+    {diff:"Medium", q:"9 × 8 = ?", options:["62","70","72","81"], correct:2, hint:"Recall the 8 or 9 times table."},
+    {diff:"Medium", q:"96 ÷ 8 = ?", options:["10","11","12","13"], correct:2, hint:"Think how many times 8 fits into 96."},
+    {diff:"Medium", q:"25% of 160 = ?", options:["35","40","45","50"], correct:1, hint:"25% is one quarter — divide by 4."},
+    {diff:"Medium", q:"130 - 47 + 22 = ?", options:["95","100","105","110"], correct:2, hint:"Subtract first, then add the last number."},
+    {diff:"Hard", q:"19 × 21 = ?", options:["389","399","409","419"], correct:1, hint:"Try 19 × 21 = 20 × 21 − 21."},
+    {diff:"Hard", q:"A shirt priced 250 SAR has a 30% discount. What is the sale price?", options:["165 SAR","170 SAR","175 SAR","180 SAR"], correct:2, hint:"The customer pays 70% of the original price."},
+    {diff:"Hard", q:"40% of a number equals 52. What is the number?", options:["120","125","130","135"], correct:2, hint:"Divide 52 by 0.4."},
+    {diff:"Hard", q:"Three numbers average 18. If two of them are 15 and 21, what is the third?", options:["16","17","18","19"], correct:2, hint:"Multiply the average by 3 to get the total, then subtract the two known numbers."},
+    {diff:"Hard", q:"A car travels 180 km in 2.5 hours. What is its average speed?", options:["68 km/h","70 km/h","72 km/h","74 km/h"], correct:2, hint:"Divide the distance by the time."},
+    {diff:"Hard", q:"If 5 workers finish a task in 12 days, how many days would 10 workers take at the same rate?", options:["4","5","6","7"], correct:2, hint:"Total work stays the same (worker-days); double the workers, halve the days."}
+  ]
+},
+{
+  name: "Spatial Reasoning",
+  questions: [
+    {diff:"Easy", q:"How many faces does a cube have?", options:["4","6","8","12"], correct:1, hint:"Picture a standard six-sided die."},
+    {diff:"Easy", q:"How many edges does a cube have?", options:["8","10","12","14"], correct:2, hint:"Count the straight lines where two faces meet."},
+    {diff:"Easy", q:"An arrow points UP. If rotated 90° clockwise, which direction does it point?", options:["Up","Down","Left","Right"], correct:3, hint:"Clockwise from 12 o'clock moves toward 3 o'clock."},
+    {diff:"Medium", q:"An arrow points RIGHT. If rotated 180°, which direction does it point?", options:["Up","Down","Left","Right"], correct:2, hint:"180° is a half-turn — the exact opposite direction."},
+    {diff:"Medium", q:"How many vertices (corners) does a cube have?", options:["6","8","10","12"], correct:1, hint:"Count the corner points, not the edges or faces."},
+    {diff:"Medium", q:"A red-painted cube is cut into 27 equal small cubes (3×3×3). How many small cubes have exactly 1 red face?", options:["1","6","8","12"], correct:1, hint:"These are the small cubes sitting at the center of each face."},
+    {diff:"Hard", q:"From the same 3×3×3 cube, how many small cubes have exactly 3 red faces?", options:["6","8","12","1"], correct:1, hint:"These are the small cubes located at the corners."},
+    {diff:"Hard", q:"A rectangular box measures 4 cm × 3 cm × 2 cm. What is its volume?", options:["20 cm³","24 cm³","28 cm³","32 cm³"], correct:1, hint:"Multiply length × width × height."},
+    {diff:"Hard", q:"A paper is folded in half twice, then a hole is punched through it. How many holes appear when unfolded?", options:["1","2","4","8"], correct:2, hint:"Each fold doubles the number of layers the punch goes through."},
+    {diff:"Hard", q:"The letter 'F' is reflected in a mirror placed to its right. What does the reflection look like?", options:["The same F","A mirrored (backwards) F","An upside-down F","A rotated F lying on its side"], correct:1, hint:"A mirror reverses left and right, not up and down."},
+    {diff:"Medium", q:"How many faces meet at each vertex (corner) of a cube?", options:["2","3","4","6"], correct:1, hint:"Picture the corner of a box — count the surfaces touching that point."},
+    {diff:"Medium", q:"An arrow points DOWN. If rotated 90° counter-clockwise, which direction does it point?", options:["Up","Down","Left","Right"], correct:3, hint:"Counter-clockwise from the 6 o'clock position moves toward the 3 o'clock position."},
+    {diff:"Medium", q:"How many faces does a triangular prism have?", options:["4","5","6","8"], correct:1, hint:"Count the two triangular ends plus the rectangular sides."},
+    {diff:"Medium", q:"How many edges does a triangular prism have?", options:["6","9","12","15"], correct:1, hint:"Count the edges of both triangles plus the edges connecting them."},
+    {diff:"Hard", q:"A cube is painted on all faces, then cut into 64 equal small cubes (4×4×4). How many small cubes have exactly 2 red faces?", options:["8","16","24","32"], correct:2, hint:"These are the small cubes sitting along the edges, excluding the corners."},
+    {diff:"Hard", q:"From the same 4×4×4 cube, how many small cubes have NO red faces at all?", options:["4","6","8","10"], correct:2, hint:"These are the small cubes fully hidden inside, forming a 2×2×2 block."},
+    {diff:"Hard", q:"A cylinder is cut straight down, parallel to its central axis. What shape is the cross-section?", options:["Circle","Rectangle","Triangle","Oval"], correct:1, hint:"Picture slicing a can lengthwise from top to bottom."},
+    {diff:"Hard", q:"A rectangular sheet is rolled so its two shorter edges meet, forming a tube. Which side becomes the height of the cylinder?", options:["The longer side","The shorter side","Both equally","Neither"], correct:0, hint:"The side that wraps around becomes the circumference; the other stays as height."},
+    {diff:"Hard", q:"A cube has faces numbered 1 to 6, with opposite faces always summing to 7. If the face showing 2 is on top, what number is on the bottom?", options:["3","4","5","6"], correct:2, hint:"Subtract the top number from 7."},
+    {diff:"Hard", q:"Using the same rule (opposite faces sum to 7), if 1 is on top, what number is on the bottom?", options:["3","4","6","7"], correct:2, hint:"Subtract the top number from 7."}
+  ]
+},
+{
+  name: "Following Instructions & Symbols",
+  questions: [
+    {diff:"Easy", q:"Legend: ★ = add 2. Start with 5 and apply ★. What is the result?", options:["6","7","8","9"], correct:1, hint:"Just add 2 to the starting number."},
+    {diff:"Easy", q:"Legend: ▲ = subtract 4. Start with 10 and apply ▲. What is the result?", options:["5","6","7","8"], correct:1, hint:"Subtract 4 from the starting number."},
+    {diff:"Easy", q:"Legend: ● = multiply by 3. Start with 4 and apply ●. What is the result?", options:["10","11","12","13"], correct:2, hint:"Multiply the starting number by 3."},
+    {diff:"Medium", q:"Legend: ★ = add 2, ● = multiply by 3. Start with 3, apply ★ then ●. Result?", options:["13","14","15","16"], correct:2, hint:"First add 2 to get 5, then multiply that result by 3."},
+    {diff:"Medium", q:"Legend: ▲ = subtract 4, ■ = divide by 2. Start with 20, apply ▲ then ■. Result?", options:["6","7","8","9"], correct:2, hint:"Subtract 4 first (16), then divide that by 2."},
+    {diff:"Medium", q:"Legend: ★ = add 2, ▲ = subtract 4. Start with 10, apply ★, ★, ▲ in order. Result?", options:["8","9","10","11"], correct:2, hint:"Apply each symbol one at a time, left to right: 10→12→14→10."},
+    {diff:"Hard", q:"Legend: ★=add 2, ●=×3, ▲=−4, ■=÷2. Start with 6, apply ●, ▲, ■ in order. Result?", options:["5","6","7","8"], correct:2, hint:"6×3=18, then 18−4=14, then 14÷2=7."},
+    {diff:"Hard", q:"Same legend as above. Start with 8, apply ■, ★, ● in order. Result?", options:["16","18","20","22"], correct:1, hint:"8÷2=4, then 4+2=6, then 6×3=18."},
+    {diff:"Hard", q:"Same legend as above. Start with 2, apply ●, ●, ▲ in order. Result?", options:["10","12","14","16"], correct:2, hint:"2×3=6, then 6×3=18, then 18−4=14."},
+    {diff:"Hard", q:"Legend: ●=×3, ▲=subtract 4. Applied to 5, which order gives the BIGGER result: ● then ▲, or ▲ then ●?", options:["● then ▲ gives the bigger result","▲ then ● gives the bigger result","Both give an equal result","Cannot be determined"], correct:0, hint:"Work out both orders step by step and compare: 5×3−4 vs (5−4)×3."},
+    {diff:"Medium", q:"Legend: ★=add 2, ■=divide by 2. Start with 18, apply ■ then ★. Result?", options:["9","10","11","12"], correct:2, hint:"18÷2=9, then add 2."},
+    {diff:"Medium", q:"Legend: ▲=subtract 4, ●=multiply by 3. Start with 7, apply ▲ then ●. Result?", options:["6","7","8","9"], correct:3, hint:"7−4=3, then multiply that by 3."},
+    {diff:"Medium", q:"Legend: ★=add 2, ●=×3, ▲=−4. Start with 4, apply ★, ●, ▲ in order. Result?", options:["12","13","14","15"], correct:2, hint:"4+2=6, then 6×3=18, then 18−4=14."},
+    {diff:"Medium", q:"Legend: ■=÷2, ★=add 2. Start with 12, apply ■, ■, ★ in order. Result?", options:["4","5","6","7"], correct:1, hint:"12÷2=6, then 6÷2=3, then add 2."},
+    {diff:"Hard", q:"Legend: ★=add2, ●=×3, ▲=−4, ■=÷2. Start with 9, apply ▲, ▲, ● in order. Result?", options:["1","2","3","4"], correct:2, hint:"9−4=5, then 5−4=1, then multiply by 3."},
+    {diff:"Hard", q:"Same legend. Start with 16, apply ■, ■, ▲ in order. Result?", options:["-1","0","1","2"], correct:1, hint:"16÷2=8, then 8÷2=4, then subtract 4."},
+    {diff:"Hard", q:"Same legend. Which single symbol turns 10 into 6?", options:["★","●","▲","■"], correct:2, hint:"Only one operation reduces 10 down to 6 in a single step."},
+    {diff:"Hard", q:"Same legend. Which single symbol turns 10 into 5?", options:["★","●","▲","■"], correct:3, hint:"Only one operation cuts 10 exactly in half."},
+    {diff:"Hard", q:"Same legend. Start with 4, apply ●, ★, ▲, ■ in order. Result?", options:["4","5","6","7"], correct:1, hint:"4×3=12, then +2=14, then −4=10, then ÷2=5."},
+    {diff:"Hard", q:"Same legend. Applied to 6, which order gives a result of 20: (★ then ●) or (● then ★)?", options:["★ then ●","● then ★","Both give 20","Neither gives 20"], correct:1, hint:"Work out both orders: 6+2 then ×3, versus 6×3 then +2."}
+  ]
+},
+{
+  name: "English Grammar & Comprehension",
+  questions: [
+    {diff:"Easy", q:"Choose the correct sentence:", options:["She go to work daily.","She goes to work daily.","She going to work daily.","She gone to work daily."], correct:1, hint:"Think about subject-verb agreement in simple present tense."},
+    {diff:"Easy", q:"Select the correct preposition: The report is ___ the table.", options:["in","on","at","for"], correct:1, hint:"Which preposition describes something resting on a flat surface?"},
+    {diff:"Easy", q:"What is the synonym of 'assist'?", options:["Ignore","Help","Delay","Refuse"], correct:1, hint:"A word meaning to give support to someone."},
+    {diff:"Easy", q:"Choose the correct plural form of 'child'.", options:["Childs","Childes","Children","Childrens"], correct:2, hint:"This is an irregular plural noun."},
+    {diff:"Medium", q:"Identify the grammatical error: 'Neither of the pilots have completed the checklist.'", options:["Neither of","the pilots","have completed","the checklist"], correct:2, hint:"'Neither' is singular, so it needs a singular verb."},
+    {diff:"Medium", q:"Choose the correctly punctuated sentence:", options:["The controller said, the runway is clear.","The controller said \"the runway is clear.\"","The controller said, \"The runway is clear.\"","The controller said the runway, is clear."], correct:2, hint:"Direct quotations need a comma before them, quotation marks, and a capitalized first word."},
+    {diff:"Medium", q:"What is the antonym of 'ascend'?", options:["Rise","Climb","Descend","Elevate"], correct:2, hint:"Think of the opposite direction of movement."},
+    {diff:"Hard", q:"Read: 'Despite the delay, the flight crew remained calm, methodically working through each item on the checklist.' What does 'methodically' suggest?", options:["They were panicked","They worked in a careful, orderly way","They skipped steps","They argued about the checklist"], correct:1, hint:"The word describes a systematic, step-by-step approach."},
+    {diff:"Hard", q:"Choose the sentence with correct subject-verb agreement:", options:["The list of passengers are ready.","The list of passengers is ready.","The list of passengers were ready.","The list of passengers be ready."], correct:1, hint:"The verb should agree with 'list' (singular), not 'passengers'."},
+    {diff:"Hard", q:"Which sentence uses the passive voice correctly?", options:["The report was reviewed by the manager.","The report reviewed by the manager.","The manager reviews was the report.","The report reviewing is by manager."], correct:0, hint:"Passive voice follows the pattern: subject + form of 'be' + past participle + 'by'."},
+    {diff:"Medium", q:"Choose the correct word: 'Each of the students ___ responsible for their own luggage.'", options:["is","are","were","be"], correct:0, hint:"'Each' takes a singular verb, even when followed by a plural noun."},
+    {diff:"Medium", q:"Choose the correct sentence:", options:["He don't like the new schedule.","He doesn't like the new schedule.","He not like the new schedule.","He no like the new schedule."], correct:1, hint:"Third-person singular subjects need 'doesn't', not 'don't'."},
+    {diff:"Medium", q:"Choose the word that best completes: 'She is interested ___ learning French.'", options:["in","on","at","for"], correct:0, hint:"This phrase always pairs 'interested' with the same preposition."},
+    {diff:"Medium", q:"What is the synonym of 'meticulous'?", options:["Careless","Careful","Quick","Lazy"], correct:1, hint:"Think of someone who pays very close attention to detail."},
+    {diff:"Hard", q:"Identify the error: 'Each of the pilots have their own logbook.'", options:["Each of","the pilots","have their own","logbook"], correct:2, hint:"'Each' is singular, so the verb should be 'has', not 'have'."},
+    {diff:"Hard", q:"Choose the correctly formed conditional sentence:", options:["If it rains, we will cancel the flight.","If it rains, we cancelled the flight.","If it rain, we will cancel the flight.","If it will rain, we cancel the flight."], correct:0, hint:"A real future condition uses present tense after 'if', and 'will' in the result clause."},
+    {diff:"Hard", q:"What is the antonym of 'transparent'?", options:["Clear","Opaque","Visible","Obvious"], correct:1, hint:"Think of a material you cannot see through at all."},
+    {diff:"Hard", q:"Read: 'The technician double-checked every connection before signing off on the report.' What does 'double-checked' imply?", options:["He checked it twice for accuracy","He ignored the connections","He checked it only once","He was uncertain about his job"], correct:0, hint:"The prefix 'double' hints at repeating an action for accuracy."},
+    {diff:"Hard", q:"Choose the sentence with the correct verb tense:", options:["By the time we arrived, the meeting had already started.","By the time we arrived, the meeting has already started.","By the time we arrived, the meeting starts already.","By the time we arrive, the meeting had already start."], correct:0, hint:"An earlier past event needs the past perfect tense ('had' + past participle)."},
+    {diff:"Hard", q:"Which word means the same as 'concise'?", options:["Lengthy","Brief","Vague","Confusing"], correct:1, hint:"Think of a summary that says a lot in very few words."}
+  ]
+},
+{
+  name: "IT, Data & Cybersecurity Fundamentals",
+  questions: [
+    {diff:"Easy", q:"What does 'CPU' stand for?", options:["Central Processing Unit","Computer Personal Unit","Central Program Utility","Control Processing Unit"], correct:0, hint:"The component often called the 'brain' of the computer."},
+    {diff:"Easy", q:"Which of these is an operating system?", options:["Microsoft Word","Windows","Google Chrome","Photoshop"], correct:1, hint:"This one manages the whole computer's hardware and software."},
+    {diff:"Easy", q:"What does 'RAM' stand for?", options:["Random Access Memory","Read Access Memory","Rapid Application Memory","Run Access Module"], correct:0, hint:"Memory the computer accesses in any order, used while programs run."},
+    {diff:"Easy", q:"Which of these is an example of a strong password practice?", options:["Using your birthdate","Using the same password everywhere","Using a long mix of letters, numbers, and symbols","Sharing it with a colleague"], correct:2, hint:"Complexity and length both help resist guessing attacks."},
+    {diff:"Medium", q:"What does 'phishing' refer to?", options:["A method to speed up networks","A fraudulent attempt to obtain sensitive information","A type of database query","A hardware failure"], correct:1, hint:"It usually involves deceptive emails or messages tricking people."},
+    {diff:"Medium", q:"What does an 'IP address' primarily identify?", options:["A file's size","A device on a network","A software license","A hard drive partition"], correct:1, hint:"Think of it like a postal address for a device."},
+    {diff:"Medium", q:"Which protocol secures website browsing (padlock icon)?", options:["FTP","HTTP","HTTPS","SMTP"], correct:2, hint:"The extra 'S' usually stands for 'Secure'."},
+    {diff:"Medium", q:"What is the main purpose of a firewall?", options:["Speed up internet connection","Filter and control network traffic for security","Store backup files","Compress large files"], correct:1, hint:"Think of a security guard deciding what traffic is allowed."},
+    {diff:"Hard", q:"What does 'DNS' primarily do?", options:["Encrypts files","Translates domain names into IP addresses","Manages user passwords","Compresses network packets"], correct:1, hint:"Think of it as the internet's phonebook."},
+    {diff:"Hard", q:"What is the main difference between TCP and UDP?", options:["TCP is wireless, UDP is wired","TCP guarantees delivery order, UDP does not","UDP is only for email","TCP cannot be used on the internet"], correct:1, hint:"One protocol focuses on reliability, the other on speed."},
+    {diff:"Medium", q:"What is the purpose of encryption?", options:["To compress files for storage","To make data unreadable without a key","To speed up data transfer","To back up files automatically"], correct:1, hint:"It protects confidentiality by scrambling data."},
+    {diff:"Medium", q:"In a database, what is a 'primary key' used for?", options:["Formatting text","Uniquely identifying each record","Encrypting a column","Sorting columns alphabetically"], correct:1, hint:"It ensures no two rows are identical in identity."},
+    {diff:"Medium", q:"What does 'two-factor authentication' add to a login process?", options:["A second, independent verification step","A faster password reset","A backup copy of the password","A larger storage quota"], correct:0, hint:"It requires something you know plus something you have or are."},
+    {diff:"Medium", q:"Which term describes unwanted software designed to damage or exploit systems?", options:["Firmware","Malware","Middleware","Freeware"], correct:1, hint:"The prefix hints at 'malicious'."},
+    {diff:"Hard", q:"Which OSI layer is responsible for routing data between different networks?", options:["Physical Layer","Data Link Layer","Network Layer","Application Layer"], correct:2, hint:"This layer handles IP addressing and routing decisions."},
+    {diff:"Hard", q:"What is the main goal of a denial-of-service (DoS) attack?", options:["Stealing encrypted data","Overwhelming a system so it becomes unavailable","Rewriting a database schema","Installing unauthorized software updates"], correct:1, hint:"Think of flooding a service with traffic until it can't respond."},
+    {diff:"Hard", q:"Which of the following best describes 'data integrity'?", options:["Data is always encrypted","Data remains accurate and unaltered unless authorized","Data is stored on multiple servers","Data can be accessed by anyone"], correct:1, hint:"It's about trustworthiness and correctness of data over time."},
+    {diff:"Hard", q:"A company backs up data daily but never tests restoring it. What is the main risk?", options:["Backups take too much storage","Backups may fail silently and be unusable when needed","Backups will corrupt live data","Backups will slow the network permanently"], correct:1, hint:"An untested backup is only a guess that it will work in an emergency."},
+    {diff:"Hard", q:"What is 'cloud computing' primarily about?", options:["Storing weather data","Delivering computing resources over the internet","A type of local hard drive","A programming language"], correct:1, hint:"Think of servers and storage accessed remotely rather than on your own device."},
+    {diff:"Hard", q:"Which of the following is a common way to reduce the risk of SQL injection attacks?", options:["Validating and sanitizing user input","Increasing screen resolution","Using a faster internet connection","Disabling the firewall"], correct:0, hint:"The attack relies on unchecked input being treated as code."}
+  ]
+}
+];
+
+// ---- STATE ----------------------------------------------------------------
+const TOTAL_QUESTIONS = sections.reduce((a,s)=>a+s.questions.length,0);
+const TOTAL_SECONDS = TOTAL_QUESTIONS * 60; // 1 minute per question, per your rule
+let timeLeft = TOTAL_SECONDS;
+let secIdx = 0, qIdx = 0, answered = false, timerHandle = null;
+let results = sections.map(s => ({correct:0, total:s.questions.length}));
+let userAnswers = sections.map(s => s.questions.map(()=>null));
+
+const app = document.getElementById('app');
+
+function fmtTime(s){
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  const p = n => String(n).padStart(2,'0');
+  return `${p(h)}:${p(m)}:${p(sec)}`;
+}
+
+function startTimer(){
+  timerHandle = setInterval(()=>{
+    timeLeft--;
+    const el = document.getElementById('timerDisplay');
+    if(el){
+      el.textContent = fmtTime(Math.max(timeLeft,0));
+      el.classList.toggle('low', timeLeft <= Math.min(300, TOTAL_SECONDS*0.1));
+    }
+    if(timeLeft <= 0){
+      clearInterval(timerHandle);
+      renderResults();
+    }
+  },1000);
+}
+
+function renderStart(){
+  const mins = Math.round(TOTAL_SECONDS/60);
+  app.innerHTML = `
+    <span class="eyebrow">PRACTICE SIMULATION · UNOFFICIAL</span>
+    <h1>AFAAQ Readiness Check</h1>
+    <p class="lede">A self-timed practice run modeled on the general shape of graduate-program admission assessments: reasoning, English, IT, and data/security fundamentals. Track: Computer/IT &amp; Data.</p>
+    <div class="note">This is not an official SANS AFAAQ test — the real program's exact assessment content isn't publicly disclosed. Treat this as general practice, not a guaranteed format.</div>
+    <div class="track-pill">⏱ ${fmtTime(TOTAL_SECONDS)} total (1 min/question) · ${sections.length} sections · ${TOTAL_QUESTIONS} questions</div>
+    <button class="btn" onclick="beginTest()">Start Simulation</button>
+  `;
+}
+
+function beginTest(){
+  timeLeft = TOTAL_SECONDS;
+  secIdx = 0; qIdx = 0;
+  results = sections.map(s => ({correct:0, total:s.questions.length}));
+  userAnswers = sections.map(s => s.questions.map(()=>null));
+  startTimer();
+  renderQuestion();
+}
+
+function totalProgress(){
+  let done = 0;
+  for(let i=0;i<secIdx;i++) done += sections[i].questions.length;
+  done += qIdx;
+  return {done, total: TOTAL_QUESTIONS};
+}
+
+function renderQuestion(){
+  answered = false;
+  const section = sections[secIdx];
+  const q = section.questions[qIdx];
+  const {done,total} = totalProgress();
+  const pct = Math.round((done/total)*100);
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div>
+        <div class="section-label">Section ${secIdx+1}/${sections.length} · <b>${section.name}</b></div>
+        <div class="section-label">Question ${qIdx+1} of ${section.questions.length}</div>
+      </div>
+      <div class="timer" id="timerDisplay">${fmtTime(Math.max(timeLeft,0))}</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="card" id="qcard">
+      <div class="diff">${q.diff}</div>
+      <div class="qtext">${q.q}</div>
+      <div class="options" id="optionsWrap">
+        ${q.options.map((o,i)=>`<button class="opt" data-i="${i}" onclick="selectOption(${i})">${o}</button>`).join('')}
+      </div>
+      <div id="feedbackWrap"></div>
+      <div class="hint-box" id="hintBox">${q.hint}</div>
+      <div class="row-btns">
+        <button class="hint-btn" onclick="toggleHint()">💡 Show Hint</button>
+        <button class="btn next-btn hidden" id="nextBtn" onclick="nextQuestion()">Next →</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('timerDisplay').classList.toggle('low', timeLeft <= Math.min(300, TOTAL_SECONDS*0.1));
+}
+
+function toggleHint(){
+  document.getElementById('hintBox').classList.toggle('show');
+}
+
+function selectOption(i){
+  if(answered) return;
+  answered = true;
+  const q = sections[secIdx].questions[qIdx];
+  userAnswers[secIdx][qIdx] = i;
+  const opts = document.querySelectorAll('.opt');
+  opts.forEach((btn,idx)=>{
+    btn.disabled = true;
+    if(idx === q.correct) btn.classList.add('correct');
+    else if(idx === i) btn.classList.add('incorrect');
+  });
+  const fb = document.getElementById('feedbackWrap');
+  if(i === q.correct){
+    results[secIdx].correct++;
+    fb.innerHTML = `<span class="feedback-tag ok">✓ Correct</span>`;
+  } else {
+    fb.innerHTML = `<span class="feedback-tag bad">✗ Incorrect</span>`;
+  }
+  document.getElementById('nextBtn').classList.remove('hidden');
+}
+
+function nextQuestion(){
+  const card = document.getElementById('qcard');
+  card.classList.add('fadeOut');
+  setTimeout(()=>{
+    if(qIdx < sections[secIdx].questions.length - 1){
+      qIdx++;
+    } else if(secIdx < sections.length - 1){
+      secIdx++; qIdx = 0;
+    } else {
+      clearInterval(timerHandle);
+      renderResults();
+      return;
+    }
+    renderQuestion();
+  }, 200);
+}
+
+function toggleReview(i){
+  document.getElementById('reviewList'+i).classList.toggle('show');
+}
+
+function renderResults(){
+  clearInterval(timerHandle);
+  const totalCorrect = results.reduce((a,r)=>a+r.correct,0);
+  const pct = Math.round((totalCorrect/TOTAL_QUESTIONS)*100);
+  app.innerHTML = `
+    <span class="eyebrow">SIMULATION COMPLETE</span>
+    <h1>Your Results</h1>
+    <div class="score-hero">
+      <div class="big">${pct}%</div>
+      <div class="small">${totalCorrect} of ${TOTAL_QUESTIONS} correct · time used: ${fmtTime(TOTAL_SECONDS - Math.max(timeLeft,0))}</div>
+    </div>
+    ${sections.map((s,i)=>{
+      const r = results[i];
+      const p = Math.round((r.correct/r.total)*100);
+      const missed = s.questions.map((q,qi)=>({q,qi})).filter(o => userAnswers[i][o.qi] !== o.q.correct);
+      const missedHtml = missed.map(o=>{
+        const ua = userAnswers[i][o.qi];
+        const userTxt = ua === null ? "No answer" : o.q.options[ua];
+        return `<div class="review-item">
+          <div class="rq">Q${o.qi+1}. ${o.q.q}</div>
+          <div>Your answer: <span class="ra">${userTxt}</span> · Correct: <span class="rc">${o.q.options[o.q.correct]}</span></div>
+        </div>`;
+      }).join('');
+      return `<div class="result-section">
+        <div class="rowline"><span>${s.name}</span><span>${r.correct}/${r.total}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${p}%"></div></div>
+        ${missed.length ? `<button class="review-toggle" onclick="toggleReview(${i})">Show ${missed.length} missed question${missed.length>1?'s':''} ▾</button>
+        <div class="review-list" id="reviewList${i}">${missedHtml}</div>` : ''}
+      </div>`;
+    }).join('')}
+    <button class="btn" onclick="beginTest()">Retake Simulation</button>
+    <button class="btn secondary" onclick="renderStart()">Back to Start</button>
+  `;
+}
+
+renderStart();
+</script>
+</body>
+</html>
