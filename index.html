@@ -43,8 +43,20 @@ th{background:#eee!important}
 }
 </style>
 </head>
-<body x-data="absenceSystem()" x-init="initHijri(); fetchData(true); startSmartSync();">
+<body x-data="absenceSystem()" x-init="initHijri(); startSmartSync();">
 <div class="grid-bg no-print"></div>
+
+<!-- شاشة الدخول -->
+<div x-show="!authed" x-cloak class="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-[#02040a] no-print">
+  <form @submit.prevent="login()" class="interactive-card w-full max-w-sm p-6 md:p-8 space-y-5 text-center">
+    <i class="fas fa-lock text-3xl text-emerald-500"></i>
+    <h2 class="font-black text-xl text-white">نظام الرصد</h2>
+    <p class="text-slate-400 text-xs">أدخل كلمة المرور للمتابعة</p>
+    <input type="password" x-model="pwInput" class="neo-input text-center font-bold" placeholder="كلمة المرور" autocomplete="current-password" required>
+    <p x-show="loginError" x-text="loginError" class="text-red-400 text-xs font-bold"></p>
+    <button type="submit" class="w-full py-4 bg-emerald-600 text-white rounded-xl font-black active:scale-95 transition-all">دخول</button>
+  </form>
+</div>
 
 <div x-show="loading" class="fixed inset-0 z-[600] bg-black/90 backdrop-blur-md flex items-center justify-center no-print" x-transition x-cloak>
   <div class="flex flex-col items-center">
@@ -82,7 +94,7 @@ th{background:#eee!important}
 </div>
 
 <!-- الشريط العلوي -->
-<nav class="fixed w-full z-50 py-2 md:py-3 px-3 md:px-10 flex justify-between items-center gap-2 bg-black/70 backdrop-blur-xl border-b border-white/5 no-print">
+<nav x-show="authed" x-cloak class="fixed w-full z-50 py-2 md:py-3 px-3 md:px-10 flex justify-between items-center gap-2 bg-black/70 backdrop-blur-xl border-b border-white/5 no-print">
   <div class="flex flex-col md:flex-row md:items-center gap-1 md:gap-4 min-w-0">
     <div class="text-base md:text-xl font-black glow-text cursor-pointer truncate" @click="location.reload()">أهلا استاذ فهد</div>
     <a href="https://docs.google.com/spreadsheets/d/1Wc856uF2_vmmVGMRwANx0bP3bmlVbKaaYlvPX1eEaKw/edit?usp=sharing" target="_blank" class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/20 w-fit">رابط الشيت <i class="fas fa-external-link-alt mr-1"></i></a>
@@ -93,7 +105,7 @@ th{background:#eee!important}
   </div>
 </nav>
 
-<main class="pt-24 md:pt-24 pb-10 px-3 md:px-6 w-full max-w-7xl 2xl:max-w-[1600px] mx-auto no-print">
+<main x-show="authed" x-cloak class="pt-24 md:pt-24 pb-10 px-3 md:px-6 w-full max-w-7xl 2xl:max-w-[1600px] mx-auto no-print">
 
   <!-- تبويب الرصد -->
   <div x-show="activeTab==='add'" x-transition x-cloak>
@@ -258,6 +270,7 @@ const hFmt = iso => { const p = g2h(iso); return `${p.y}/${p.m}/${p.d}`; };
 function absenceSystem() {
   return {
     activeTab:'add', loading:false, isHijri:false, teachers:[],
+    authed:false, pw:'', pwInput:'', loginError:'',
     dateMode:'greg', h:{d:1,m:1,y:1447}, hYears:[],
     hMonths:['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'],
     cols:[
@@ -295,12 +308,24 @@ function absenceSystem() {
 
     /* ---- البيانات ---- */
     async fetchData(showLoader=false){
+      if (!this.pw) return;
       if (showLoader) this.loading = true;
-      try { const res = await fetch(this.apiUrl); this.teachers = await res.json(); }
-      catch(e){ console.error('Error Fetching Data'); }
+      try {
+        const res = await fetch(this.apiUrl, {method:'POST', body:JSON.stringify({action:'list', pw:this.pw})});
+        const data = await res.json();
+        if (data.status === 'error') this.lock(data.message);
+        else { this.teachers = data; this.authed = true; this.loginError = ''; }
+      } catch(e){ if (!this.authed) this.loginError = 'تعذر الاتصال، حاول مرة أخرى'; }
       this.loading = false;
     },
-    startSmartSync(){ setInterval(()=>{ if(!this.loading && this.activeTab==='reports') this.fetchData(false); }, 20000); },
+    async login(){
+      this.pw = this.pwInput; this.loginError = '';
+      await this.fetchData(true);
+      if (!this.authed) this.pw = '';
+      this.pwInput = '';
+    },
+    lock(msg){ this.authed = false; this.pw = ''; this.teachers = []; this.loginError = msg || 'كلمة المرور غير صحيحة'; },
+    startSmartSync(){ setInterval(()=>{ if(!this.loading && this.authed && this.activeTab==='reports') this.fetchData(false); }, 20000); },
     toggleCalendar(){ this.isHijri = !this.isHijri; },
 
     validateAndSubmit(){
@@ -332,7 +357,14 @@ function absenceSystem() {
     async submitForm(){
       this.loading = true;
       try {
-        await fetch(this.apiUrl, {method:'POST', body:JSON.stringify(this.formData)});
+        const res = await fetch(this.apiUrl, {method:'POST', body:JSON.stringify({action:'add', pw:this.pw, ...this.formData})});
+        const out = await res.json();
+        if (out.status === 'error') {
+          this.loading = false;
+          if (out.code === 'auth') return this.lock(out.message);
+          return Swal.fire({title:'تعذر الرصد', html:out.message, icon:'error',
+            customClass:{popup:'custom-swal-popup', title:'custom-swal-title', htmlContainer:'custom-swal-html', confirmButton:'custom-swal-confirm'}});
+        }
         Swal.fire({title:'تم الرصد بنجاح!', icon:'success', timer:7000, timerProgressBar:true,
           html:`تم تسجيل غياب المعلم <b class="text-emerald-400">${this.formData.teacherName}</b> بنجاح في السجلات.`,
           customClass:{popup:'custom-swal-popup', title:'custom-swal-title', htmlContainer:'custom-swal-html', confirmButton:'custom-swal-confirm'}});
